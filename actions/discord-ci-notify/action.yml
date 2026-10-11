@@ -38,7 +38,8 @@ runs:
         set -euo pipefail
         name="${REPO#*/}"
         if [ -z "${DISCORD_WEBHOOK:-}" ]; then echo "no webhook; skipping"; exit 0; fi
-        thread=$(printf '%s' "${THREADS:-{}}" | jq -r --arg r "$name" '.[$r] // empty' 2>/dev/null || true)
+        map="${THREADS:-}"; if [ -z "$map" ]; then map='{}'; fi
+        thread=$(printf '%s' "$map" | jq -r --arg r "$name" '.[$r] // empty' 2>/dev/null || true)
         if [ -z "$thread" ]; then echo "no forum thread for $name in DISCORD_CI_THREADS; skipping"; exit 0; fi
         wf=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .workflow_id || echo "")
         prev=none
