@@ -1,0 +1,37 @@
+name: Test
+
+# Tests for the shared actions in this repository. A change to an action is
+# tagged (e.g. discord-ci-notify-v1.0.0) only after this workflow is green;
+# callers pin the tag's commit SHA.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discord-ci-notify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests (classify.sh, notify.sh decisions)
+        run: bash actions/discord-ci-notify/tests/test-notify.sh
+
+      # The action end to end, minus Discord: no webhook, so it classifies the
+      # run (here: incomplete -- a needed job was skipped), logs it, and skips.
+      - name: Action dry run
+        uses: ./actions/discord-ci-notify
+        with:
+          needs: '{"build":{"result":"success","outputs":{}},"determinism":{"result":"skipped","outputs":{}}}'
+          github-token: ${{ github.token }}

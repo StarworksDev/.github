@@ -1,13 +1,23 @@
 name: Discord CI notify
 description: >
   Posts a Starworks repo's CI result into its thread in the Discord ⚙️・ci-builds forum: FAILED on every
-  red run (naming the failed jobs), RECOVERED on the first green run after a failure, PASSED for a manual run.
-  Green runs after green stay silent. Optional plumbing: a missing webhook or thread skips, and a Discord
+  red run (naming the failed jobs), INCOMPLETE on every run in which a needed job never ran (naming them),
+  RECOVERED on the first green run after a failure, PASSED for a manual run. Green after green and
+  cancelled runs stay silent. Optional plumbing: a missing webhook or thread skips, and a Discord or API
   error never fails the job. Callers must not run it for pull_request events (fork PRs never get secrets).
 inputs:
+  needs:
+    description: >
+      The caller's `needs` context as JSON (pass toJSON(needs)). The action classifies the run from it:
+      any failure -> failure, else any cancelled -> cancelled, else any skipped -> incomplete, else success.
+    required: false
+    default: ''
   result:
-    description: The aggregated result to report (e.g. needs.<job>.result) -- success, failure, cancelled, skipped.
-    required: true
+    description: >
+      DEPRECATED (v1 accepts it for migration; prefer `needs`): a pre-aggregated result --
+      success, failure, cancelled or skipped (skipped is reported as incomplete). Ignored when `needs` is set.
+    required: false
+    default: ''
   webhook:
     description: The forum webhook URL (pass secrets.DISCORD_CI_WEBHOOK).
     required: false
@@ -24,46 +34,15 @@ runs:
   steps:
     - shell: bash
       env:
+        NEEDS: ${{ inputs.needs }}
+        RESULT: ${{ inputs.result }}
         DISCORD_WEBHOOK: ${{ inputs.webhook }}
         THREADS: ${{ inputs.threads }}
         GH_TOKEN: ${{ inputs.github-token }}
-        RESULT: ${{ inputs.result }}
         REPO: ${{ github.repository }}
         RUN_ID: ${{ github.run_id }}
         BRANCH: ${{ github.ref_name }}
         SHA: ${{ github.sha }}
         EVENT: ${{ github.event_name }}
         HEAD_MSG: ${{ github.event.head_commit.message }}
-      run: |
-        set -euo pipefail
-        name="${REPO#*/}"
-        if [ -z "${DISCORD_WEBHOOK:-}" ]; then echo "no webhook; skipping"; exit 0; fi
-        map="${THREADS:-}"; if [ -z "$map" ]; then map='{}'; fi
-        thread=$(printf '%s' "$map" | jq -r --arg r "$name" '.[$r] // empty' 2>/dev/null || true)
-        if [ -z "$thread" ]; then echo "no forum thread for $name in DISCORD_CI_THREADS; skipping"; exit 0; fi
-        wf=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .workflow_id || echo "")
-        prev=none
-        if [ -n "$wf" ]; then
-          prev=$(gh api "repos/$REPO/actions/workflows/$wf/runs?branch=$BRANCH&status=completed&per_page=20" \
-                   --jq "[.workflow_runs[] | select(.id != $RUN_ID and .event != \"pull_request\" and (.conclusion == \"success\" or .conclusion == \"failure\"))][0].conclusion // \"none\"" \
-                 || echo none)
-        fi
-        case "$RESULT" in
-          failure) title="FAILED: $name CI on $BRANCH"; color=15158332 ;;
-          success)
-            if [ "$prev" = "failure" ]; then title="RECOVERED: $name CI on $BRANCH"
-            elif [ "$EVENT" = "workflow_dispatch" ]; then title="PASSED: $name CI on $BRANCH (manual run)"
-            else echo "green, previous was $prev: nothing to post"; exit 0; fi
-            color=3066993 ;;
-          *) echo "result $RESULT: nothing to post"; exit 0 ;;
-        esac
-        failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
-                   --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")' || true)
-        subject=$(printf '%s' "${HEAD_MSG:-}" | head -n1 | cut -c1-200)
-        desc="Branch \`$BRANCH\` at \`${SHA:0:8}\`"
-        if [ -n "$subject" ]; then desc="$desc: $subject"; fi
-        if [ -n "$failed" ]; then desc="$desc"$'\n'"**Failed:** $failed"; fi
-        jq -n --arg t "$title" --arg d "$desc" --arg u "https://github.com/$REPO/actions/runs/$RUN_ID" --argjson c "$color" \
-           '{username: "GitHub Actions", embeds: [{title: $t, description: $d, url: $u, color: $c}]}' \
-          | curl -fsS -H "Content-Type: application/json" -d @- "${DISCORD_WEBHOOK}?thread_id=${thread}" >/dev/null \
-          || echo "Discord post failed (ignored)"
+      run: bash "$GITHUB_ACTION_PATH/notify.sh"
