@@ -191,55 +191,220 @@ def main():
 
 
 def build_stack(site, variant):
-    """The stack diagram: Arcane on Astra + Manifold2D on Mosaic. Arcane's card
-    wears the hero gradient; the libraries are outlined cards in the site's
-    accent (#b3a6ff dark / #5b4d9e light). Static -- no animation."""
+    """The stack as the Mosaic page draws it (src/lib/components/mosaic/MosaicFlow.svelte
+    + src/styles/products/mosaic.css): dark layered cards with a tinted icon mark in
+    each product's tone, hairline routes with rounded elbows (Arcane's trunk forks to
+    Astra and Manifold2D and runs on to Mosaic; they merge back into Mosaic; Mosaic
+    drops to the standard library), and a comet of light in each product's tone on
+    one timeline at the site's speed. The site's JS timeline is precomputed into CSS
+    keyframes. Dark: transparent on GitHub's page; light: the same on a night panel.
+    Icons: Font Awesome Free 6.5.2 solid (CC BY 4.0), the site's vendored subset."""
     fonts = Path(site) / "static/assets/vendor/fonts"
-    mono = TTFont(fonts / "i7dMIFZifjKcF5UAWdDRaPpZUFWaHg.woff2")
-    inter = TTFont(fonts / "UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2")
-    if "fvar" in inter:
-        inter = instantiateVariableFont(inter, {"wght": 400})
+    fa_path = Path(site) / "static/assets/vendor/fontawesome-6.5.2/webfonts/fa-solid-900-subset-07976e2a84.woff2"
+    inter_vf = TTFont(fonts / "UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2")
+    inter = {w: instantiateVariableFont(TTFont(fonts / "UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2"), {"wght": w})
+             for w in (300, 400, 600)} if "fvar" in inter_vf else {w: inter_vf for w in (300, 400, 600)}
+    fa = TTFont(fa_path)
+    INK, SOFT, FAINT = "#f5f5f7", "#a1a1a6", "#8e8e93"
+
+    def left_text(font, text, size, x, baseline, fill, tracking=0.0):
+        _, w = text_path(font, text, size, tracking, 0, baseline)
+        d, _ = text_path(font, text, size, tracking, x + w / 2, baseline)
+        return f'<path d="{d}" fill="{fill}"/>', w
+
+    def icon(code, cx, cy, size, fill):
+        gs, cmap = fa.getGlyphSet(), fa.getBestCmap()
+        name = cmap[code]
+        upm = fa["head"].unitsPerEm
+        s = size / upm
+        from fontTools.pens.boundsPen import BoundsPen
+        bp = BoundsPen(gs)
+        gs[name].draw(bp)
+        x0, y0, x1, y1 = bp.bounds
+        pen = SVGPathPen(gs, ntos=lambda v: f"{v:.2f}".rstrip("0").rstrip("."))
+        ox = cx - (x0 + x1) / 2 * s
+        oy = cy + (y0 + y1) / 2 * s
+        gs[name].draw(TransformPen(pen, (s, 0, 0, -s, ox, oy)))
+        return f'<path d="{pen.getCommands()}" fill="{fill}"/>'
+
+    # ---- layout: the site's 880 px column, row-gap 76, pair column-gap 72 ----
+    PAD = 40
+    COL = 880
+    sw = COL + 2 * PAD
+    gap_row, gap_col = 76, 72
+    tone = {"arcane": (155, 109, 214), "astra": (46, 155, 214), "manifold": (240, 70, 79),
+            "mosaic": (217, 164, 65), "base": (161, 161, 166)}
+    rgb = lambda t, a=1: f"rgba({t[0]},{t[1]},{t[2]},{a})"
+    y = PAD
+    top = dict(x=PAD, y=y, w=COL, h=114); y += top["h"] + gap_row
+    mid_w = (COL - gap_col) / 2
+    left = dict(x=PAD, y=y, w=mid_w, h=118)
+    right = dict(x=PAD + mid_w + gap_col, y=y, w=mid_w, h=118); y += left["h"] + gap_row
+    core = dict(x=PAD, y=y, w=COL, h=118); y += core["h"] + gap_row
+    base = dict(x=PAD, y=y, w=COL, h=68); y += base["h"]
+    sh = y + PAD
+    for b in (top, left, right, core, base):
+        b["cx"] = b["x"] + b["w"] / 2
+
+    # ---- routes (MosaicFlow.measure) ----
+    R = 16
+
+    def elbow(x1, y1, m, x2, y2):
+        if abs(x2 - x1) < 1:
+            return f"M{x1:.1f} {y1:.1f}V{y2:.1f}", y2 - y1
+        s = 1 if x2 > x1 else -1
+        r = min(R, abs(x2 - x1) / 2, m - y1, y2 - m)
+        d = (f"M{x1:.1f} {y1:.1f}V{m - r:.1f}Q{x1:.1f} {m:.1f} {x1 + s * r:.1f} {m:.1f}"
+             f"H{x2 - s * r:.1f}Q{x2:.1f} {m:.1f} {x2:.1f} {m + r:.1f}V{y2:.1f}")
+        quarter = 1.1478 * r  # a quadratic quarter-elbow's arc length (r * ~1.1478)
+        length = (m - r - y1) + 2 * quarter + (abs(x2 - x1) - 2 * r) + (y2 - m - r)
+        return d, length
+
+    tx, ty = top["cx"], top["y"] + top["h"]
+    fork = (ty + left["y"]) / 2
+    merge = (left["y"] + left["h"] + core["y"]) / 2
+    routes = [
+        (*elbow(tx, ty, fork, left["cx"], left["y"]), "arcane", [], None),
+        (*elbow(tx, ty, fork, right["cx"], right["y"]), "arcane", [], None),
+        (f"M{tx:.1f} {ty:.1f}V{core['y']:.1f}", core["y"] - ty, "arcane", [], [3, 4]),
+        (*elbow(left["cx"], left["y"] + left["h"], merge, core["cx"], core["y"]), "astra", [0], None),
+        (*elbow(right["cx"], right["y"] + right["h"], merge, core["cx"], core["y"]), "manifold", [1], None),
+        (f"M{core['cx']:.1f} {core['y'] + core['h']:.1f}V{base['y']:.1f}", base["y"] - core["y"] - core["h"], "mosaic", [2, 3, 4], None),
+    ]
+    # ---- timeline (MosaicFlow.timeline): SPEED px/s, THROUGH s crossing a card, REST s between journeys ----
+    SPEED, THROUGH, REST = 240, 0.3, 1.4
+    COMET = [(70, 2, 0.22), (34, 2, 0.5), (9, 2.6, 1.0)]  # tail .. head: (len, width, alpha)
+    start, end = {}, {}
+    for pss in (0, 1):
+        for i, (_, L, _, after, arrive) in enumerate(routes):
+            if pss == 0 and (arrive or any(routes[k][4] for k in after)):
+                continue  # the JS computes these in pass 0 as NaN and fixes them in pass 1
+            if pss == 1 and not arrive and not any(routes[k][4] for k in after):
+                continue
+            start[i] = (max(end[k] for k in after) + THROUGH) if after else 0.0
+            end[i] = max(end[k] for k in arrive) if arrive else start[i] + L / SPEED
+    period = max(end.values()) + REST
+    tail = COMET[0][0]
+
+    css, comets = [], []
+    pct = lambda t: f"{max(0.0, min(100.0, 100 * t / period)):.3f}%"
+    for i, (d, L, who, _, _) in enumerate(routes):
+        s0, e0 = start[i], end[i]
+        dur = e0 - s0
+        e_tail = e0 + dur * tail / L  # the tail slides on into the card
+        fade_in = s0 + dur / 6
+        fade_out = e_tail - dur / 6
+        layers = []
+        for j, (D, wdt, alpha) in enumerate(COMET):
+            name = f"c{i}{j}"
+            css.append(
+                f"@keyframes {name}{{0%,{pct(s0)}{{stroke-dashoffset:{D}px;opacity:0;animation-timing-function:cubic-bezier(.455,.03,.515,.955)}}"
+                f"{pct(fade_in)}{{opacity:{alpha}}}"
+                f"{pct(e0)}{{stroke-dashoffset:{D - L:.1f}px;animation-timing-function:linear}}"
+                f"{pct(fade_out)}{{opacity:{alpha}}}"
+                f"{pct(e_tail)},100%{{stroke-dashoffset:{D - L - tail:.1f}px;opacity:0}}}}"
+                f".{name}{{stroke-dasharray:{D} {L + D + 200:.0f};animation:{name} {period:.3f}s linear infinite}}")
+            glow = ' filter="url(#glow-%s)"' % who if j == len(COMET) - 1 else ""
+            layers.append(f'<path class="{name}" d="{d}" stroke="{rgb(tone[who])}" stroke-width="{wdt}" opacity="0"{glow}/>')
+        comets.append("".join(layers))
+
+    # ---- cards (mosaic.css) ----
+    def card(b, who, title, lines, title_size, tclass="", chevron=True, core_card=False):
+        t = tone[who]
+        g0, g1 = ("#2d2d31", "#1f1f23") if core_card else ("#242427", "#1b1b1e")
+        gid = f"g-{who}"
+        out = [f'<linearGradient id="{gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{g0}"/><stop offset="1" stop-color="{g1}"/></linearGradient>']
+        x, yy, w, h = b["x"], b["y"], b["w"], b["h"]
+        body = []
+        if core_card:  # the gold halo: 0 0 70px -24px rgba(tone,.3)
+            body.append(f'<rect x="{x}" y="{yy}" width="{w}" height="{h}" rx="22" fill="{rgb(t, 0.5)}" filter="url(#halo)"/>')
+        body.append(f'<rect x="{x}" y="{yy + 18}" width="{w}" height="{h}" rx="22" fill="#000" fill-opacity="0.55" filter="url(#drop)"/>')
+        body.append(f'<rect x="{x}" y="{yy}" width="{w}" height="{h}" rx="22" fill="url(#{gid})"/>')
+        ring = rgb(t, 0.3) if core_card else "rgba(255,255,255,0.05)"
+        body.append(f'<rect x="{x + 0.5}" y="{yy + 0.5}" width="{w - 1}" height="{h - 1}" rx="21.5" fill="none" stroke="{ring}"/>')
+        body.append(f'<path d="M{x + 22} {yy + 1}H{x + w - 22}" stroke="#fff" stroke-opacity="{0.1 if core_card else 0.07}"/>')
+        padx = 34 if who in ("arcane", "mosaic") else 28
+        mx, my = x + padx, yy + h / 2 - 22
+        body.append(f'<rect x="{mx}" y="{my}" width="44" height="44" rx="12" fill="{rgb(t, 0.13)}" stroke="{rgb(t, 0.26)}"/>')
+        body.append(icon({"arcane": 0xF1B2, "astra": 0xF005, "manifold": 0xF5CB, "mosaic": 0xF84C}[who], mx + 22, my + 22, 18, rgb(t)))
+        tx0 = mx + 44 + 18
+        n_lines = len(lines)
+        block = title_size * 1.25 + 4 + n_lines * 14 * 1.45
+        top_y = yy + h / 2 - block / 2
+        p, _ = left_text(inter[600], title, title_size, tx0, top_y + title_size * 0.98, INK, -0.01)
+        body.append(p)
+        ly = top_y + title_size * 1.25 + 4 + 14 * 1.05
+        for line in lines:
+            p, _ = left_text(inter[400], line, 14, tx0, ly, SOFT)
+            body.append(p)
+            ly += 14 * 1.45
+        if chevron:
+            cv, cw = text_path(inter[300], "›", 26, 0, 0, 0)
+            p, _ = left_text(inter[300], "›", 26, x + w - padx - cw, yy + h / 2 + 9, FAINT)
+            body.append(p)
+        return out, body
+
+    defs, cards = [], []
+    for args in (
+        (top, "arcane", "Arcane", ["The engine. Its world runs on Astra, its physics on Manifold2D."], 24),
+        (left, "astra", "Astra", ["The ECS. Archetype storage,", "compile-time queries."], 19),
+        (right, "manifold", "Manifold2D", ["2D physics. Deterministic rigid", "bodies."], 19),
+    ):
+        d_, b_ = card(*args)
+        defs += d_
+        cards += b_
+    d_, b_ = card(core, "mosaic", "Mosaic", ["Platform · Jobs · Log · Assert · SIMD · Bits · FunctionRef"], 26,
+                  chevron=False, core_card=True)
+    defs += d_
+    cards += b_
+    # the base: a ghost card, centred mark + text
+    bt = tone["base"]
+    cards.append(f'<rect x="{base["x"] + 0.5}" y="{base["y"] + 0.5}" width="{base["w"] - 1}" height="{base["h"] - 1}" rx="21.5" fill="none" stroke="rgba(255,255,255,0.08)"/>')
+    _, w1 = text_path(inter[600], "C++ standard library", 15, -0.01, 0, 0)
+    group_w = 32 + 18 + w1
+    gx = base["cx"] - group_w / 2
+    gy = base["y"] + base["h"] / 2
+    cards.append(f'<rect x="{gx}" y="{gy - 16}" width="32" height="32" rx="9" fill="{rgb(bt, 0.13)}" stroke="{rgb(bt, 0.26)}"/>')
+    cards.append(icon(0xF121, gx + 16, gy, 13, rgb(bt)))
+    p, _ = left_text(inter[600], "C++ standard library", 15, gx + 50, gy - 2, SOFT, -0.01)
+    cards.append(p)
+    p, _ = left_text(inter[400], "and nothing else", 12.5, gx + 50, gy + 15, FAINT)
+    cards.append(p)
+
     dark = variant == "dark"
-    ink = "#e6edf3" if dark else "#1f2328"
-    soft = "#9198a1" if dark else "#59636e"
-    accent = "#b3a6ff" if dark else "#5b4d9e"
-    card = "rgba(179,166,255,0.07)" if dark else "rgba(91,77,158,0.05)"
-    sw, sh = 1280, 380
+    panel = ""
+    if not dark:
+        # Light theme: the flow sits on the site's night ground, with a few static stars.
+        stars = star_field(SEED + 7, 70)
+        dots = "".join(f'<circle cx="{x * sw:.1f}" cy="{yy * sh:.1f}" r="{size * 0.8:.2f}" fill="#fff" fill-opacity="{b * 0.5:.2f}"/>'
+                       for x, yy, size, _, b in stars)
+        panel = f'<rect width="{sw}" height="{sh}" rx="16" fill="#0b0b0e"/>{dots}'
 
-    def label(cx, top, name, sub, name_fill, sub_fill):
-        n, _ = text_path(mono, name, 30, 0.06, cx, top + 46)
-        s, _ = text_path(inter, sub, 17, 0.01, cx, top + 76)
-        return f'<path d="{n}" fill="{name_fill}"/><path d="{s}" fill="{sub_fill}"/>'
-
-    parts = []
-    # Arcane (top), hero gradient.
-    ax, ay, aw, ah = 340, 16, 600, 100
-    parts.append(f'<rect x="{ax}" y="{ay}" width="{aw}" height="{ah}" rx="14" fill="url(#hero)"/>')
-    parts.append(label(sw / 2, ay, "ARCANE", "game engine + editor", "#fff", "rgba(255,255,255,0.82)"))
-    # Libraries (middle).
-    lib_y, lib_w, lib_h = 146, 380, 100
-    libs = [(240, "ASTRA", "entity component system"), (660, "MANIFOLD2D", "deterministic 2D physics")]
-    for x, name, sub in libs:
-        parts.append(f'<rect x="{x}" y="{lib_y}" width="{lib_w}" height="{lib_h}" rx="14" fill="{card}" stroke="{accent}" stroke-opacity="0.55" stroke-width="1.5"/>')
-        parts.append(label(x + lib_w / 2, lib_y, name, sub, ink, soft))
-    # Mosaic (bottom).
-    mx, my, mw, mh = 340, 276, 600, 100
-    parts.append(f'<rect x="{mx}" y="{my}" width="{mw}" height="{mh}" rx="14" fill="{card}" stroke="{accent}" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="6 5"/>')
-    parts.append(label(sw / 2, my, "MOSAIC", "zero-dependency foundation", ink, soft))
-    # Connectors: each layer builds on the one below (arrow points up).
-    def arrow(x, y1, y2):
-        return (f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2 + 7}" stroke="{accent}" stroke-width="2" stroke-opacity="0.8"/>'
-                f'<path d="M{x - 6} {y2 + 9} L{x} {y2} L{x + 6} {y2 + 9} Z" fill="{accent}"/>')
-    for x, _, _ in libs:
-        cx = x + lib_w / 2
-        parts.append(arrow(cx, lib_y, ay + ah))
-        parts.append(arrow(cx, my, lib_y + lib_h))
-
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{sw}" height="{sh + 8}" viewBox="0 0 {sw} {sh + 8}" role="img" aria-labelledby="t d">
+    glows = "".join(
+        f'<filter id="glow-{k}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="a"/>'
+        f'<feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="a"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+        for k in ("arcane", "astra", "manifold", "mosaic"))
+    route_paths = "".join(f'<path d="{d}" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="1.5" stroke-linejoin="round"/>'
+                          for d, *_ in routes)
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{sw}" height="{sh}" viewBox="0 0 {sw} {sh}" role="img" aria-labelledby="t d">
 <title id="t">The Starworks stack</title>
-<desc id="d">Arcane, the game engine and editor, builds on Astra (entity component system) and Manifold2D (deterministic 2D physics), which are usable on their own and both build on Mosaic, the zero-dependency foundation.</desc>
-<defs><linearGradient id="hero" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4e4376"/><stop offset="1" stop-color="#2b5876"/></linearGradient></defs>
-{"".join(parts)}
+<desc id="d">Each route runs from a product to what it is built on. Arcane builds on Astra, Manifold2D and Mosaic; Astra and Manifold2D build on Mosaic; Mosaic needs only the C++ standard library.</desc>
+<!-- Icons: Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com (CC BY 4.0). Text: Inter (SIL OFL 1.1). -->
+<defs>
+{"".join(defs)}
+<filter id="drop" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="16"/></filter>
+<filter id="halo" x="-20%" y="-80%" width="140%" height="260%"><feGaussianBlur stdDeviation="22"/></filter>
+{glows}
+</defs>
+<style>
+{"".join(css)}
+path[class^="c"]{{fill:none;stroke-linecap:round;stroke-linejoin:round}}
+@media (prefers-reduced-motion: reduce){{path[class^="c"]{{animation:none;opacity:0}}}}
+</style>
+{panel}
+{route_paths}
+{"".join(comets)}
+{"".join(cards)}
 </svg>
 '''
 

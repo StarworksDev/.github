@@ -24,11 +24,13 @@ We make games, and we build the technology under them in the open. Every layer o
 
 ## The stack
 
+<a href="https://starworks.dev/mosaic">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/stack-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/stack-light.svg">
-  <img alt="Arcane (game engine + editor) builds on Astra (ECS) and Manifold2D (2D physics), which build on Mosaic (zero-dependency foundation)." src="assets/stack-light.svg" width="100%">
+  <img alt="Each route runs from a product to what it is built on. Arcane builds on Astra, Manifold2D and Mosaic; Astra and Manifold2D build on Mosaic; Mosaic needs only the C++ standard library." src="assets/stack-light.svg" width="100%">
 </picture>
+</a>
 
 ## Projects
 
