@@ -35,21 +35,24 @@ We make games, and we build the technology under them in the open. Every layer o
 ## Projects
 
 ### [Arcane](https://github.com/StarworksDev/Arcane) &nbsp;·&nbsp; game engine
-A C++23 game engine and editor. Your game is a hot-reloaded shared library, hosted by the editor, a standalone runtime, or a dedicated server. Rendering goes through NRI on **D3D12 and Vulkan** (MoltenVK on macOS). Gameplay code uses a flat `Arcane::` API over Astra and Manifold2D, and the editor runs on the same renderer as the game.
-Developed on Windows; builds and runs its test suite on Windows, Linux and macOS in CI.
+**The C++23 engine our games run on.**
+It renders through Direct3D 12 and Vulkan, runs its world on Astra and its physics on Manifold2D, and hosts your game as a module it can reload while you play: rebuild, and the live simulation carries over. The editor, the standalone runtime and the dedicated server all run the same game. Windows is home; Linux and macOS build and pass the test suite in CI.
 
 ### [Astra](https://github.com/StarworksDev/Astra) &nbsp;·&nbsp; ECS
-An Entity Component System reimagined for modern CPU architectures and cache hierarchies: archetype storage in contiguous 16 KB chunks, SIMD-accelerated paths (SSE2 / SSE4.2 / AVX2 / NEON), relationship graphs, and compile-time optimized queries.
+**High-performance archetype ECS for modern C++.**
+Entities with the same components share 16 KB chunks sized for the cache, and the hot loops pick up SSE, AVX2 or NEON on their own. Queries are checked at compile time, and hierarchies live outside component storage so they don't fragment it. Header-only: drop it into any C++20 project.
 
 ### [Manifold2D](https://github.com/StarworksDev/Manifold2D) &nbsp;·&nbsp; 2D physics
-A deterministic 2D physics engine modeled on Box2D v3's algorithms: a graph-colored soft-step solver with persistent islands, a dynamic-tree and spatial-grid broadphase, GJK / EPA / MPR and SAT narrowphase, continuous collision, and an exact-predicate geometry kernel. Standard library only, with no other dependencies.
+**Deterministic 2D rigid-body physics, modeled on Box2D v3.**
+A sub-stepped soft-constraint solver, seven joint types, continuous collision for fast movers, and your choice of broadphase. The same inputs replay to the same results, even across broadphase backends. Nothing but the standard library.
 
 ### [Mosaic](https://github.com/StarworksDev/Mosaic) &nbsp;·&nbsp; foundation
-The shared ground every Starworks library is built on: platform and SIMD detection, deterministic lane-wide math, and pluggable seams for jobs, logging and asserts. Standard library only. It never creates its own threads; the host injects a scheduler.
+**One foundation under every Starworks product.**
+The zero-dependency layer beneath Arcane, Astra and Manifold2D: platform detection, deterministic SIMD, and the seams every component plugs into. It starts no threads of its own; the host hands it a scheduler, a log sink and an assert handler.
 
 ### [hero3d](https://github.com/StarworksDev/hero3d) &nbsp;·&nbsp; web
-Readable text and real, clickable UI on planes in perspective. It uses Canvas 2D, has no dependencies, and a typical hero is about 3 KB gzipped. It draws the hero scenes on our website.
-`npm i @starworks-dev/hero3d`
+**Real interfaces, flying in 3D: sharp, clickable, accessible, and tiny.**
+Text and UI on planes in perspective, drawn with Canvas 2D, with real HTML pinned on top wherever something has to be clicked or read by a screen reader. It draws the hero scenes on [starworks.dev](https://starworks.dev); a typical one is about 3 KB gzipped. `npm i @starworks-dev/hero3d`
 
 ## Licensing
 
