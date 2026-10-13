@@ -1,16 +1,26 @@
+<a href="https://starworks.dev">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
+    <img alt="Starworks: an independent studio making games, and the engine they run on." src="assets/hero-light.svg" width="100%">
+  </picture>
+</a>
+
 <div align="center">
-
-# ✦ Starworks
-
-**An independent game studio building its own engine, one standalone library at a time.**
 
 [Website](https://starworks.dev) · [Arcane](https://starworks.dev/arcane) · [Astra](https://starworks.dev/astra) · [Manifold2D](https://starworks.dev/manifold)
 
 </div>
 
----
-
 We make games, and we build the technology under them in the open. Every layer of our stack is a library you can take on its own: an ECS, a 2D physics engine, a shared foundation, and the engine that ties them together.
+
+| Project | What it is | Language | License | Build |
+|---|---|---|---|---|
+| [**Arcane**](https://github.com/StarworksDev/Arcane) | Game engine + editor | C++23 | BSL 1.1 → MIT | [![CI](https://github.com/StarworksDev/Arcane/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarworksDev/Arcane/actions/workflows/ci.yml?query=branch%3Amain) |
+| [**Astra**](https://github.com/StarworksDev/Astra) | Entity Component System | C++20 | MIT | [![CI](https://github.com/StarworksDev/Astra/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarworksDev/Astra/actions/workflows/ci.yml?query=branch%3Amain) |
+| [**Manifold2D**](https://github.com/StarworksDev/Manifold2D) | Deterministic 2D physics | C++23 | MIT | [![CI](https://github.com/StarworksDev/Manifold2D/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarworksDev/Manifold2D/actions/workflows/ci.yml?query=branch%3Amain) |
+| [**Mosaic**](https://github.com/StarworksDev/Mosaic) | Zero-dependency foundation | C++23 | MIT | [![CI](https://github.com/StarworksDev/Mosaic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StarworksDev/Mosaic/actions/workflows/ci.yml?query=branch%3Amain) |
+| [**hero3d**](https://github.com/StarworksDev/hero3d) | Text + UI on planes in perspective | TypeScript | MIT | `npm i @starworks-dev/hero3d` |
 
 ## The stack
 
