@@ -24,20 +24,11 @@ We make games, and we build the technology under them in the open. Every layer o
 
 ## The stack
 
-```
-                ┌──────────────────────────────────────────┐
-                │                  Arcane                  │   game engine + editor
-                └──────────────────────────────────────────┘
-                     ▲                              ▲
-        ┌────────────┴───────────┐    ┌─────────────┴────────────┐
-        │         Astra          │    │        Manifold2D        │   usable on their own
-        │          ECS           │    │       2D physics         │
-        └────────────────────────┘    └──────────────────────────┘
-                     ▲                              ▲
-                ┌────┴──────────────────────────────┴──────┐
-                │                  Mosaic                  │   zero-dependency foundation
-                └──────────────────────────────────────────┘
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/stack-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/stack-light.svg">
+  <img alt="Arcane (game engine + editor) builds on Astra (ECS) and Manifold2D (2D physics), which build on Mosaic (zero-dependency foundation)." src="assets/stack-light.svg" width="100%">
+</picture>
 
 ## Projects
 

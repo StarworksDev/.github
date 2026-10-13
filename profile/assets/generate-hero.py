@@ -184,9 +184,64 @@ def main():
     site, out = sys.argv[1], Path(sys.argv[2])
     out.mkdir(parents=True, exist_ok=True)
     for v in ("dark", "light"):
-        p = out / f"hero-{v}.svg"
-        p.write_text(build(site, v), encoding="utf-8", newline="\n")
-        print(p, p.stat().st_size, "bytes")
+        for name, fn in (("hero", build), ("stack", build_stack)):
+            p = out / f"{name}-{v}.svg"
+            p.write_text(fn(site, v), encoding="utf-8", newline="\n")
+            print(p, p.stat().st_size, "bytes")
+
+
+def build_stack(site, variant):
+    """The stack diagram: Arcane on Astra + Manifold2D on Mosaic. Arcane's card
+    wears the hero gradient; the libraries are outlined cards in the site's
+    accent (#b3a6ff dark / #5b4d9e light). Static -- no animation."""
+    fonts = Path(site) / "static/assets/vendor/fonts"
+    mono = TTFont(fonts / "i7dMIFZifjKcF5UAWdDRaPpZUFWaHg.woff2")
+    inter = TTFont(fonts / "UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2")
+    if "fvar" in inter:
+        inter = instantiateVariableFont(inter, {"wght": 400})
+    dark = variant == "dark"
+    ink = "#e6edf3" if dark else "#1f2328"
+    soft = "#9198a1" if dark else "#59636e"
+    accent = "#b3a6ff" if dark else "#5b4d9e"
+    card = "rgba(179,166,255,0.07)" if dark else "rgba(91,77,158,0.05)"
+    sw, sh = 1280, 380
+
+    def label(cx, top, name, sub, name_fill, sub_fill):
+        n, _ = text_path(mono, name, 30, 0.06, cx, top + 46)
+        s, _ = text_path(inter, sub, 17, 0.01, cx, top + 76)
+        return f'<path d="{n}" fill="{name_fill}"/><path d="{s}" fill="{sub_fill}"/>'
+
+    parts = []
+    # Arcane (top), hero gradient.
+    ax, ay, aw, ah = 340, 16, 600, 100
+    parts.append(f'<rect x="{ax}" y="{ay}" width="{aw}" height="{ah}" rx="14" fill="url(#hero)"/>')
+    parts.append(label(sw / 2, ay, "ARCANE", "game engine + editor", "#fff", "rgba(255,255,255,0.82)"))
+    # Libraries (middle).
+    lib_y, lib_w, lib_h = 146, 380, 100
+    libs = [(240, "ASTRA", "entity component system"), (660, "MANIFOLD2D", "deterministic 2D physics")]
+    for x, name, sub in libs:
+        parts.append(f'<rect x="{x}" y="{lib_y}" width="{lib_w}" height="{lib_h}" rx="14" fill="{card}" stroke="{accent}" stroke-opacity="0.55" stroke-width="1.5"/>')
+        parts.append(label(x + lib_w / 2, lib_y, name, sub, ink, soft))
+    # Mosaic (bottom).
+    mx, my, mw, mh = 340, 276, 600, 100
+    parts.append(f'<rect x="{mx}" y="{my}" width="{mw}" height="{mh}" rx="14" fill="{card}" stroke="{accent}" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="6 5"/>')
+    parts.append(label(sw / 2, my, "MOSAIC", "zero-dependency foundation", ink, soft))
+    # Connectors: each layer builds on the one below (arrow points up).
+    def arrow(x, y1, y2):
+        return (f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2 + 7}" stroke="{accent}" stroke-width="2" stroke-opacity="0.8"/>'
+                f'<path d="M{x - 6} {y2 + 9} L{x} {y2} L{x + 6} {y2 + 9} Z" fill="{accent}"/>')
+    for x, _, _ in libs:
+        cx = x + lib_w / 2
+        parts.append(arrow(cx, lib_y, ay + ah))
+        parts.append(arrow(cx, my, lib_y + lib_h))
+
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{sw}" height="{sh + 8}" viewBox="0 0 {sw} {sh + 8}" role="img" aria-labelledby="t d">
+<title id="t">The Starworks stack</title>
+<desc id="d">Arcane, the game engine and editor, builds on Astra (entity component system) and Manifold2D (deterministic 2D physics), which are usable on their own and both build on Mosaic, the zero-dependency foundation.</desc>
+<defs><linearGradient id="hero" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4e4376"/><stop offset="1" stop-color="#2b5876"/></linearGradient></defs>
+{"".join(parts)}
+</svg>
+'''
 
 
 if __name__ == "__main__":
